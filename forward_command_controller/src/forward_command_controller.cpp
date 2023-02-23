@@ -85,7 +85,17 @@ CallbackReturn ForwardCommandController::on_configure(
 
   joints_command_subscriber_ = get_node()->create_subscription<CmdType>(
     "~/commands", rclcpp::SystemDefaultsQoS(),
-    [this](const CmdType::SharedPtr msg) { rt_command_ptr_.writeFromNonRT(msg); });
+    [this](const CmdType::SharedPtr msg) {
+      if (msg->data.size() == 8)
+      {
+        uint id = (uint)msg->data[6];
+        double Pubtimestamp = msg->data[7];
+        double Subtimestamp = (double)node_->now().nanoseconds()/RCUTILS_S_TO_NS(1);
+        RCLCPP_INFO(rclcpp::get_logger("TSN-Debug"), "Pub(s): %.9f, Sub(s): %.9f, Latency(s): %.9f, Index: %d", 
+                    Pubtimestamp, Subtimestamp, Subtimestamp - Pubtimestamp, id); 
+      }
+      rt_command_ptr_.writeFromNonRT(msg); 
+    });
 
   RCLCPP_INFO(get_node()->get_logger(), "configure successful");
   return CallbackReturn::SUCCESS;
@@ -176,14 +186,14 @@ controller_interface::return_type ForwardCommandController::update()
     return controller_interface::return_type::OK;
   }
 
-  if ((*joint_commands)->data.size() != command_interfaces_.size())
-  {
-    RCLCPP_ERROR_THROTTLE(
-      get_node()->get_logger(), *node_->get_clock(), 1000,
-      "command size (%zu) does not match number of interfaces (%zu)",
-      (*joint_commands)->data.size(), command_interfaces_.size());
-    return controller_interface::return_type::ERROR;
-  }
+  // if ((*joint_commands)->data.size() != command_interfaces_.size())
+  // {
+  //   RCLCPP_ERROR_THROTTLE(
+  //     get_node()->get_logger(), *node_->get_clock(), 1000,
+  //     "command size (%zu) does not match number of interfaces (%zu)",
+  //     (*joint_commands)->data.size(), command_interfaces_.size());
+  //   return controller_interface::return_type::ERROR;
+  // }
 
   for (auto index = 0ul; index < command_interfaces_.size(); ++index)
   {
